@@ -45,7 +45,7 @@ class LineaRuta(models.Model):
     class Meta:
         db_table = "lineasrutas"
         verbose_name = "linearuta"
-        verbose_name = "lineasrutas"
+        verbose_name_plural = "lineasrutas"
         ordering = ['idlinea', 'idruta']
     
 class LineasPuntos(models.Model):
