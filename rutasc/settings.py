@@ -104,17 +104,18 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-OSGEO4W = r"C:\Program Files\PostgreSQL\17"
-GEOS_BIN = os.path.join(OSGEO4W, 'bin')
+#ruta donde se encuentra los archivos libgdal-35.dll puede variar el numero si es asi ir al .env y cambiar el 35
+GEOS_BIN = config('POSTGRES_BIN_PATH', default=r"C:\Program Files\PostgreSQL\17\bin")
 
 if os.name == 'nt':
     try:
         os.add_dll_directory(GEOS_BIN)
     except AttributeError:
         pass
+nombre_gdal = config('GDAL_LIBRARY_NAME', default='libgdal-35.dll')
 
-GDAL_LIBRARY_PATH = os.path.join(OSGEO4W, 'bin', 'libgdal-35.dll') 
-GEOS_LIBRARY_PATH = os.path.join(OSGEO4W, 'bin', 'libgeos_c.dll')
+GDAL_LIBRARY_PATH = os.path.join(GEOS_BIN, nombre_gdal) 
+GEOS_LIBRARY_PATH = os.path.join(GEOS_BIN, 'libgeos_c.dll')
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

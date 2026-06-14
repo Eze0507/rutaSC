@@ -35,3 +35,5 @@ python manage.py migrate
 poblar la base de datos con los archivos CSV:
 python manage.py import_csv
 
+en el .env agregar
+
