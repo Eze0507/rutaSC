@@ -4,9 +4,10 @@ from django.db.models import Sum
 from django.conf import settings
 import requests
 from .models import Puntos, LineasPuntos, PuntosTransbordo
+#from django.db import connection
 
 def sugerencias_google(place: str):
-    url = settings.URL_GOOGLE
+    url = settings.URL_GOOGLE_PLACES
     fields = "places.id,places.displayName,places.location,places.viewport"
     headers = {
         "X-Goog-Api-Key": settings.API_KEY_GOOGLE,
@@ -37,11 +38,91 @@ def sugerencias_google(place: str):
     except requests.exceptions.RequestException as e:
         return {"error": "hubo un problema con la red", "detalle": str(e)}
 
-def calcular_distancia(punto_o: Point, punto_d: Point):
-    punto_o_utm = punto_o.transform(32720, clone=True)
-    punto_d_utm = punto_d.transform(32720, clone=True)
-    distancia = punto_o_utm.distance(punto_d_utm)
-    return distancia
+def ruta_pie(punto_o: Point, punto_d: Point):
+    url = settings.URL_GOOGLE_ROUTES
+    fields = 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline'
+    headers = {
+        "X-Goog-Api-Key": settings.API_KEY_GOOGLE,
+        "X-Goog-FieldMask": fields,
+        "Content-Type": "application/json"
+    }
+    body = {
+        "origin":{
+            "location":{
+                "latLng":{
+                    "latitude": punto_o.y,
+                    "longitude": punto_o.x
+                }
+            }
+        },
+        "destination":{
+            "location":{
+                "latLng":{
+                    "latitude": punto_d.y,
+                    "longitude": punto_d.x
+                }
+            }
+        },
+        "travelMode": "WALK",
+        "languajeCode": "es"
+    }
+    try:
+        respuesta = requests.post(url, headers=headers, json=body, timeout=5)
+        respuesta.raise_for_status()
+        return respuesta.json()
+    except requests.exceptions.HTTPError as e:
+        return {"error": "Google rechazo la peticion", "detalle": str(e), "status": respuesta.status_code}
+    except requests.exceptions.RequestException as e:
+        return {"error": "hubo un problema con la red", "detalle": str(e)}
+
+#def calcular_distancia_pie(punto_o: Point, punto_d: Point, puntos: list):
+#   punto_o_utm = punto_o.transform(32720, clone=True)
+#   distancia = 0.0
+#   for p in puntos:
+#       punto = Point(p[0], p[1], srid=4326)
+#       punto_d_utm = punto.transform(32720, clone=True)
+#       distancia += punto_o_utm.distance(punto_d_utm)
+#       punto_o_utm = punto_d_utm
+#   punto_d_utm = punto_d.transform(32720, clone=True)
+#   distancia += punto_o_utm.distance(punto_d_utm)
+#   return distancia"""
+
+#def ruta_pie(punto_o: Point, punto_d: Point)->list:
+#   with connection.cursor() as cursor:
+#       x_o = punto_o.x
+#       y_o = punto_o.y
+#       x_d = punto_d.x
+#       y_d = punto_d.y
+#       variables = [x_o, y_o, x_d, y_d]
+#       cursor.execute("""
+#                       WITH nodo_origen AS (
+#                           SELECT id FROM ways_vertices_pgr 
+#                           ORDER BY geom <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326) 
+#                           LIMIT 1
+#                       ),
+#                       nodo_destino AS (
+#                           SELECT id FROM ways_vertices_pgr 
+#                           ORDER BY geom <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326) 
+#                           LIMIT 1
+#                       )
+#                       SELECT 
+#                           ruta.seq AS paso,
+#                           nodos.x AS longitud,
+#                           nodos.y AS latitud
+#                       FROM pgr_dijkstra(
+#                           'SELECT id, source, target, length_m AS cost, length_m AS reverse_cost FROM ways',
+#                           (SELECT id FROM nodo_origen),
+#                           (SELECT id FROM nodo_destino),
+#                           directed := false
+#                       ) AS ruta
+#                       JOIN ways_vertices_pgr AS nodos ON ruta.node = nodos.id
+#                       ORDER BY ruta.seq;
+#                       """, variables)
+#       puntos = cursor.fetchall()
+#       puntos_ruta = [[float(coordenada[1]), float(coordenada[2])] for coordenada in puntos]
+#       puntos_ruta.append([punto_d.x, punto_d.y])
+#       puntos_ruta.insert(0, [punto_o.x, punto_o.y])
+#   return puntos_ruta
 
 #recibe un punto y un radio, envia la lineaspuntos, linea y el punto que estan dentro del radio del punto
 def limpiar_rutas_directas(rutas_encontradas: list):
@@ -62,18 +143,18 @@ def paradas_cercanas(punto: Point, radio: int=200):
     return LineasPuntos.objects.filter(idpunto__in=paradas).select_related('idlinearuta__idlinea', 'idpunto')
 
 #envia una lista de todas las rutas directas
-def calcular_rutas_directas(paradas_origen, paradas_destino, punto_o, punto_d, lng_o, lat_o, lng_d, lat_d)-> list:
+def calcular_rutas_directas(paradas_origen, paradas_destino, punto_o, punto_d)-> list:
     rutas_encontradas = []
     for p_origen in paradas_origen:
         for p_destino in paradas_destino:
             #preguntamos si el punto origen y el punto destino pertenecen a la misma ruta y ademas de el orden del punto origen es menor al orden del punto destino
             if (p_origen.idlinearuta == p_destino.idlinearuta) and (p_origen.orden < p_destino.orden):
-                distancia_pie_o = calcular_distancia(punto_o, p_origen.idpunto.coordenada)
-                distancia_pie_d = calcular_distancia(p_destino.idpunto.coordenada, punto_d)
-                #velocidad promedio humana: 5km/h -> 83m/min
-                tiempo_pie_o = distancia_pie_o / 83.3
-                tiempo_pie_d = distancia_pie_d / 83.3
-                
+                ruta_pie_o = ruta_pie(punto_o, p_origen.idpunto.coordenada)
+                ruta_pie_d = ruta_pie(p_destino.idpunto.coordenada, punto_d)
+                tiempo_pie_o = float(ruta_pie_o["routes"][0]["duration"][:-1])
+                tiempo_pie_d = float(ruta_pie_d["routes"][0]["duration"][:-1])
+                distancia_pie_o = float(ruta_pie_o["routes"][0]["distanceMeters"])
+                distancia_pie_d = float(ruta_pie_d["routes"][0]["distanceMeters"])
                 #calculamos el tiempo total del viaje en bus 
                 resultado_suma = LineasPuntos.objects.filter(
                     idlinearuta = p_origen.idlinearuta,
@@ -112,7 +193,7 @@ def calcular_rutas_directas(paradas_origen, paradas_destino, punto_o, punto_d, l
                             "tipo" : "caminata_origen",
                             "tiempo_minutos" : round(tiempo_pie_o, 2),
                             "distancia_metros" : round(distancia_pie_o, 2),
-                            "coordenadas" : [[lng_o, lat_o], [p_origen.idpunto.coordenada.x, p_origen.idpunto.coordenada.y]]
+                            "encodePolyline" : ruta_pie_o
                         },
                         {
                             "tipo": "viaje_bus",
@@ -126,7 +207,7 @@ def calcular_rutas_directas(paradas_origen, paradas_destino, punto_o, punto_d, l
                             "tipo" : "caminata_destino",
                             "tiempo_minutos" : round(tiempo_pie_d, 2),
                             "distancia_metros" : round(distancia_pie_d, 2),
-                            "coordenadas" : [[lng_d, lat_d], [p_destino.idpunto.coordenada.x, p_destino.idpunto.coordenada.y]]
+                            "encodePolyline" : ruta_pie_d
                         }
                     ]
                 })
@@ -147,7 +228,7 @@ def calcular_ruta_optima(lat_o: float, lng_o: float, lat_d: float, lng_d: float)
     paradas_destino = paradas_cercanas(punto_d)
     
     #obtner las rutas directas que nos llevan del punto origen al destino
-    rutas_encontradas = calcular_rutas_directas(paradas_origen, paradas_destino, punto_o, punto_d, lng_o, lat_o, lng_d, lat_d)
+    rutas_encontradas = calcular_rutas_directas(paradas_origen, paradas_destino, punto_o, punto_d)
     
     #ordenamos las rutas encontradas desde la de mayor tiempo hasta la de menor tiempo
     rutas_encontradas.sort(key=lambda x: x['tiempo_total'])

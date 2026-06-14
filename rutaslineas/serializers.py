@@ -40,14 +40,13 @@ class DetalleLineaRutaSerilaizer(GeoFeatureModelSerializer):
 class tramoSerializer(serializers.Serializer):
     tipo = serializers.CharField(max_length=50)
     tiempo_minutos = serializers.FloatField()
-    
     distancia_metros = serializers.FloatField(required=False)
     linea = serializers.CharField(max_length=50, required=False)
     color_linea = serializers.CharField(max_length=7, required=False)
-    
+    encodedPolyline = serializers.CharField(max_length=50, required=False)
     coordenadas = serializers.ListField(
         child=serializers.ListField(child=serializers.FloatField())
-    )
+    , required=False)
 
 class RutaOptimaSerializer(serializers.Serializer):
     idopcion = serializers.IntegerField()
