@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.contrib.gis.geos import Point
 from rutaslineas.models import Lineas, Puntos, LineaRuta, LineasPuntos, PuntosTransbordo
+from rutaslineas.services import invalidar_grafo
 
 class Command(BaseCommand):
     help = 'importar los datos de las rutas de los microbuses desde archivos CSV a PostGIS'
@@ -97,3 +98,6 @@ class Command(BaseCommand):
                     )
             
             self.stdout.write(self.style.SUCCESS('¡Base da datos poblada!'))
+            # Invalidar caché del grafo Dijkstra para reflejar los nuevos datos
+            invalidar_grafo()
+            self.stdout.write(self.style.SUCCESS('Caché del grafo invalidado.'))

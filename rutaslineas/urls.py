@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import LineasViewSet, RutaLineaViewSet, ListaLineaViewSet, RutaOptimaViewSet
+from .views import LineasViewSet, RutaLineaViewSet, ListaLineaViewSet, RutaOptimaViewSet, SugerenciasGoogleView
 
 router = DefaultRouter()
 
@@ -11,4 +11,5 @@ router.register(r'linea-proxima', ListaLineaViewSet, basename='lineaproxima')
 urlpatterns = [
     path('', include(router.urls)),
     path('ruta-optima/', RutaOptimaViewSet.as_view(), name='rutaoptima'),
+    path('sugerencias-google/', SugerenciasGoogleView.as_view(), name='sugerenciasgoogle'),
 ]

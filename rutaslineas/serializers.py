@@ -43,7 +43,7 @@ class tramoSerializer(serializers.Serializer):
     distancia_metros = serializers.FloatField(required=False)
     linea = serializers.CharField(max_length=50, required=False)
     color_linea = serializers.CharField(max_length=7, required=False)
-    encodedPolyline = serializers.CharField(max_length=50, required=False)
+    encodedPolyline = serializers.CharField(required=False, allow_blank=True)
     coordenadas = serializers.ListField(
         child=serializers.ListField(child=serializers.FloatField())
     , required=False)
