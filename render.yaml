@@ -4,14 +4,13 @@
 services:
   - type: web
     name: rutasc-backend
-    env: python
-    region: oregon           # elegir la región más cercana a tus usuarios
-    plan: free               # cambiar a 'starter' o superior para producción real
-    buildCommand: "./build.sh"
-    startCommand: "gunicorn rutasc.wsgi:application"
+    env: docker          # <-- CAMBIO CLAVE: pasamos de python a docker
+    region: oregon
+    plan: free
+    # Se eliminan 'buildCommand' y 'startCommand' de aquí
     envVars:
       - key: SECRET_KEY
-        generateValue: true  # Render genera una clave segura automáticamente
+        generateValue: true
       - key: DEBUG
         value: False
       - key: DATABASE_URL
@@ -20,9 +19,8 @@ services:
           property: connectionString
       - key: ALLOWED_HOSTS
         value: .onrender.com
-      # ── Google API (completar con tus valores reales) ──
       - key: API_KEY_GOOGLE
-        sync: false          # se ingresa manualmente en el dashboard de Render
+        sync: false
       - key: URL_GOOGLE_PLACES
         value: https://places.googleapis.com/v1/places:searchText
       - key: URL_GOOGLE_ROUTES
@@ -32,4 +30,4 @@ databases:
   - name: rutasc-db
     databaseName: rutasc
     user: rutasc
-    plan: free               # PostgreSQL gratuito de Render (90 días)
+    plan: free
