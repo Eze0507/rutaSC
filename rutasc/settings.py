@@ -19,6 +19,18 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def env_bool(name: str, default: bool = False) -> bool:
+    value = config(name, default=default)
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {'1', 'true', 't', 'yes', 'y', 'on', 'debug', 'dev', 'development'}:
+        return True
+    if normalized in {'0', 'false', 'f', 'no', 'n', 'off', 'release', 'prod', 'production'}:
+        return False
+    raise ValueError(f"Valor invalido para {name}: {value}")
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -26,9 +38,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = env_bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -104,15 +116,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-#ruta donde se encuentra los archivos libgdal-35.dll puede variar el numero si es asi ir al .env y cambiar el 35
-GEOS_BIN = config('POSTGRES_BIN_PATH', default=r"C:\Program Files\PostgreSQL\17\bin")
+# ruta donde se encuentra libgdal/libgeos dentro de PostgreSQL en Windows
+GEOS_BIN = config('POSTGRES_BIN_PATH', default=r"C:\Program Files\PostgreSQL\17\bin").strip()
 
 if os.name == 'nt':
     try:
-        os.add_dll_directory(GEOS_BIN)
+        if os.path.isdir(GEOS_BIN):
+            os.add_dll_directory(GEOS_BIN)
     except AttributeError:
         pass
-nombre_gdal = config('GDAL_LIBRARY_NAME', default='libgdal-35.dll')
+nombre_gdal = config('GDAL_LIBRARY_NAME', default='libgdal-35.dll').strip()
 
 GDAL_LIBRARY_PATH = os.path.join(GEOS_BIN, nombre_gdal) 
 GEOS_LIBRARY_PATH = os.path.join(GEOS_BIN, 'libgeos_c.dll')

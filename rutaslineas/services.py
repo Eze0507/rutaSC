@@ -36,7 +36,7 @@ def sugerencias_google(place: str):
     body = {
         "textQuery": place,
         "languageCode": "es",
-        "locationRestriction": {
+        "locationBias": {
             "circle": {
                 "center": {"latitude": -17.783727, "longitude": -63.179835},
                 "radius": 2000.0,
@@ -48,6 +48,9 @@ def sugerencias_google(place: str):
         respuesta.raise_for_status()
         return respuesta.json()
     except requests.exceptions.HTTPError as e:
+        print("--------------------------------------------------")
+        print("GOOGLE PLACES ERROR RESPONSE:", respuesta.text)
+        print("--------------------------------------------------")
         return {"error": "Google rechazo la peticion", "detalle": str(e),
                 "status": respuesta.status_code}
     except requests.exceptions.RequestException as e:
