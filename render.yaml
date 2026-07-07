@@ -1,0 +1,35 @@
+# render.yaml — Blueprint de despliegue para Render
+# Documentación: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: rutasc-backend
+    env: python
+    region: oregon           # elegir la región más cercana a tus usuarios
+    plan: free               # cambiar a 'starter' o superior para producción real
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn rutasc.wsgi:application"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true  # Render genera una clave segura automáticamente
+      - key: DEBUG
+        value: False
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rutasc-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+      # ── Google API (completar con tus valores reales) ──
+      - key: API_KEY_GOOGLE
+        sync: false          # se ingresa manualmente en el dashboard de Render
+      - key: URL_GOOGLE_PLACES
+        value: https://places.googleapis.com/v1/places:searchText
+      - key: URL_GOOGLE_ROUTES
+        value: https://routes.googleapis.com/directions/v2:computeRoutes
+
+databases:
+  - name: rutasc-db
+    databaseName: rutasc
+    user: rutasc
+    plan: free               # PostgreSQL gratuito de Render (90 días)

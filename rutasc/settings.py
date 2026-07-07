@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'whitenoise.runserver_nostatic',
     'rest_framework',
     'django.contrib.gis',
     'rutaslineas',
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -116,19 +118,19 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# ruta donde se encuentra libgdal/libgeos dentro de PostgreSQL en Windows
-GEOS_BIN = config('POSTGRES_BIN_PATH', default=r"C:\Program Files\PostgreSQL\17\bin").strip()
-
+# Configuracion de GDAL/GEOS:
+# En Windows las DLLs no se encuentran automaticamente, hay que indicar su ruta.
+# En Linux (Render, Docker, etc.) Django las detecta solo, no se necesita configuracion.
 if os.name == 'nt':
+    GEOS_BIN = config('POSTGRES_BIN_PATH', default=r"C:\Program Files\PostgreSQL\17\bin").strip()
     try:
         if os.path.isdir(GEOS_BIN):
             os.add_dll_directory(GEOS_BIN)
     except AttributeError:
         pass
-nombre_gdal = config('GDAL_LIBRARY_NAME', default='libgdal-35.dll').strip()
-
-GDAL_LIBRARY_PATH = os.path.join(GEOS_BIN, nombre_gdal) 
-GEOS_LIBRARY_PATH = os.path.join(GEOS_BIN, 'libgeos_c.dll')
+    nombre_gdal = config('GDAL_LIBRARY_NAME', default='libgdal-35.dll').strip()
+    GDAL_LIBRARY_PATH = os.path.join(GEOS_BIN, nombre_gdal)
+    GEOS_LIBRARY_PATH = os.path.join(GEOS_BIN, 'libgeos_c.dll')
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -145,7 +147,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL  = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 API_KEY_GOOGLE = config('API_KEY_GOOGLE')
 URL_GOOGLE_PLACES = config('URL_GOOGLE_PLACES')
