@@ -95,7 +95,8 @@ WSGI_APPLICATION = 'rutasc.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL')
+        default=config('DATABASE_URL'),
+        engine='django.contrib.gis.db.backends.postgis'
     )
 }
 
