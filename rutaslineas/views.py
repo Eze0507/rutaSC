@@ -6,7 +6,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from .models import Lineas, Puntos, LineaRuta
 from .serializers import ListaLineasSerializer, DetalleLineaRutaSerilaizer, DetalleLineasSerialzier, RutaOptimaSerializer
-from .services import calcular_ruta_optima, sugerencias_google
+from .services import calcular_ruta_optima, sugerencias_google, K_RUTAS_MAX
 # Create your views here.
 
 class LineasViewSet(viewsets.ReadOnlyModelViewSet):
@@ -72,7 +72,14 @@ class RutaOptimaViewSet(APIView):
                 {"error": "Coordenadas de origen o destino invalidas o imcompletas"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        rutas = calcular_ruta_optima(lat_o, lng_o, lat_d, lng_d)
+        # Cantidad de rutas a calcular: opcional, por defecto K_RUTAS_MAX, máximo 10
+        try:
+            cantidad = int(request.query_params.get('cantidad', K_RUTAS_MAX))
+            cantidad = max(1, min(cantidad, 10))  # limitar entre 1 y 10
+        except (TypeError, ValueError):
+            cantidad = K_RUTAS_MAX
+
+        rutas = calcular_ruta_optima(lat_o, lng_o, lat_d, lng_d, k=cantidad)
         serializer = RutaOptimaSerializer(instance=rutas, many=True)
         return Response(serializer.data)
 

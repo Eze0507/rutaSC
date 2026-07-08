@@ -541,7 +541,8 @@ def formatear_ruta(
 # ══════════════════════════════════════════════════════════════════════════
 
 def calcular_ruta_optima(lat_o: float, lng_o: float,
-                        lat_d: float, lng_d: float) -> list:
+                        lat_d: float, lng_d: float,
+                        k: int = K_RUTAS_MAX) -> list:
     """
     Calcula las mejores rutas (directas y con trasbordo) entre dos coordenadas
     usando Dijkstra sobre el grafo de transporte público.
@@ -618,7 +619,7 @@ def calcular_ruta_optima(lat_o: float, lng_o: float,
     id_opcion            = 1
 
     for costo_total, nodo_final in resultados:
-        if id_opcion > K_RUTAS_MAX:
+        if id_opcion > k:
             break
 
         camino = reconstruir_camino(previo, nodo_final)
