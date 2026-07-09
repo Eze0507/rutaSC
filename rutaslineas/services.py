@@ -630,16 +630,22 @@ def calcular_ruta_optima(lat_o: float, lng_o: float,
     if not resultados:
         return []
 
-    # ── Reconstruir caminos y formatear rutas ─────────────────────────────
-    # Los resultados ya vienen ordenados por costo ascendente (Dijkstra).
-    # Deduplicamos por combinación de líneas: si dos caminos usan exactamente
-    # las mismas líneas, nos quedamos solo con el de menor tiempo (el primero).
-    rutas_formateadas    = []
+    # ── Reconstruir caminos y formatear rutas (pool 2k) ───────────────────
+    # Problema: Dijkstra ordena por costo ESTIMADO (caminata geométrica).
+    # Pero formatear_ruta calcula caminatas REALES (Google API), que pueden
+    # diferir del estimado y cambiar el orden final.
+    #
+    # Solución: tomar el doble de candidatos (2k) de Dijkstra, formatearlos
+    # todos con tiempos reales, ordenar por tiempo_total real y devolver
+    # solo los k mejores. Así no se pierden rutas buenas que Dijkstra
+    # subestimó, y el orden final es correcto.
+    candidatos_max       = 2 * k   # pool interno de candidatos
+    candidatos           = []
     combinaciones_usadas = set()
-    id_opcion            = 1
+    id_candidato         = 1
 
     for costo_total, nodo_final in resultados:
-        if id_opcion > k:
+        if id_candidato > candidatos_max:
             break
 
         camino = reconstruir_camino(previo, nodo_final)
@@ -655,8 +661,18 @@ def calcular_ruta_optima(lat_o: float, lng_o: float,
             continue   # ya tenemos una ruta con esa misma combinación de líneas
         combinaciones_usadas.add(lineas)
 
-        ruta = formatear_ruta(camino, metadata, punto_o, punto_d, id_opcion)
-        rutas_formateadas.append(ruta)
-        id_opcion += 1
+        # Formatear con tiempos reales (Google API o fallback geométrico)
+        # Se usa id_candidato como id_opcion temporal; se reasignará al final.
+        ruta = formatear_ruta(camino, metadata, punto_o, punto_d, id_candidato)
+        candidatos.append(ruta)
+        id_candidato += 1
+
+    # Ordenar por tiempo_total REAL y quedarse con los k mejores
+    candidatos.sort(key=lambda r: r['tiempo_total'])
+    rutas_formateadas = candidatos[:k]
+
+    # Reasignar idopcion secuencial (1, 2, 3, ...) según orden final
+    for i, ruta in enumerate(rutas_formateadas, start=1):
+        ruta['idopcion'] = i
 
     return rutas_formateadas
