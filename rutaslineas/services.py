@@ -297,7 +297,8 @@ def invalidar_grafo():
 # Algoritmo de Dijkstra multi-fuente / multi-destino
 # ══════════════════════════════════════════════════════════════════════════
 
-def dijkstra_transito(grafo: dict, fuentes: list, destinos: set) -> tuple:
+def dijkstra_transito(grafo: dict, fuentes: list, destinos: set,
+                    costos_salida: dict | None = None) -> tuple:
     """
     Dijkstra multi-fuente, multi-destino sobre el grafo de transporte.
 
@@ -308,13 +309,18 @@ def dijkstra_transito(grafo: dict, fuentes: list, destinos: set) -> tuple:
 
     Parámetros
     ----------
-    grafo    : lista de adyacencia  nodo → [arista, ...]
-    fuentes  : list of (costo_inicial, nodo, arista_inicio)
-    destinos : set de nodos objetivo
+    grafo         : lista de adyacencia  nodo → [arista, ...]
+    fuentes       : list of (costo_inicial, nodo, arista_inicio)
+    destinos      : set de nodos objetivo
+    costos_salida : dict nodo → minutos_caminata_al_destino_real (opcional).
+                    Si se provee, se suma al registrar resultados para que
+                    la comparación entre paradas sea justa: una parada más
+                    lejana en bus pero más cerca del destino puede ganar
+                    a una más cercana en bus pero con más caminata final.
 
     Retorna
     -------
-    resultados : list[(costo_total, nodo_destino)] ordenados por costo ascendente
+    resultados : list[(costo_total_efectivo, nodo_destino)] ordenados por costo ascendente
     previo     : dict  nodo → (nodo_anterior, arista) para reconstruir caminos
     """
     heap    = []  # min-heap: (costo, tiebreaker_int, nodo)
@@ -343,7 +349,11 @@ def dijkstra_transito(grafo: dict, fuentes: list, destinos: set) -> tuple:
         # ¿Llegamos a un nodo destino?
         if nodo in destinos and nodo not in encontrados:
             encontrados.add(nodo)
-            resultados.append((costo, nodo))
+            # Sumar el costo de salida (caminata estimada al destino real) para
+            # que el ordenamiento de resultados refleje el viaje completo.
+            # La caminata real (Google) se calcula luego en formatear_ruta.
+            costo_efectivo = costo + (costos_salida.get(nodo, 0.0) if costos_salida else 0.0)
+            resultados.append((costo_efectivo, nodo))
             # No hacemos break: seguimos para encontrar los demás destinos
 
         # Explorar vecinos
@@ -356,6 +366,9 @@ def dijkstra_transito(grafo: dict, fuentes: list, destinos: set) -> tuple:
                 heapq.heappush(heap, (nuevo_costo, tie, vecino))
                 tie += 1
 
+    # Reordenar por costo efectivo (puede diferir del orden natural de Dijkstra
+    # cuando se incluyen costos de salida distintos por parada)
+    resultados.sort(key=lambda x: x[0])
     return resultados, previo
 
 
@@ -599,13 +612,20 @@ def calcular_ruta_optima(lat_o: float, lng_o: float,
             {'tipo': 'inicio', 'coordenada': lp.idpunto.coordenada},
         ))
 
-    # ── Nodos destino para Dijkstra ───────────────────────────────────────
-    nodos_destino = {
-        (lp.idlinearuta_id, lp.idpunto_id) for lp in lps_destino
-    }
+    # ── Nodos destino + costo de salida estimado por parada ─────────────────
+    # El costo de salida es la caminata geométrica desde cada parada hasta el
+    # destino real del usuario. Incluirlo en Dijkstra evita que el algoritmo
+    # prefiera una parada más cercana en bus pero con más caminata final.
+    costos_salida = {}
+    for lp in lps_destino:
+        nodo   = (lp.idlinearuta_id, lp.idpunto_id)
+        dist_m = _distancia_m(lp.idpunto.coordenada, punto_d)
+        costos_salida[nodo] = _minutos_caminata(dist_m)
+
+    nodos_destino = set(costos_salida.keys())
 
     # ── Ejecutar Dijkstra ─────────────────────────────────────────────────
-    resultados, previo = dijkstra_transito(grafo, fuentes, nodos_destino)
+    resultados, previo = dijkstra_transito(grafo, fuentes, nodos_destino, costos_salida)
 
     if not resultados:
         return []
