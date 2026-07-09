@@ -15,6 +15,8 @@ RADIO_USUARIO                 = 500    # metros – radio para buscar paradas de
 RADIO_TRASBORDO               = 300    # metros – radio para detectar trasbordos dinámicos
 SRID_UTM                      = 32720  # EPSG 32720 – UTM Zona 20S (Santa Cruz de la Sierra)
 K_RUTAS_MAX                   = 5      # máximo de opciones de ruta a devolver
+UMBRAL_RUTA_CIRCULAR          = 1500   # metros – si inicio y fin de ruta están más
+                                        # cerca que esto, se trata como circular
 
 # Caché del grafo: se construye una única vez por ciclo de vida del proceso Django
 _GRAFO_CACHE: dict | None = None
@@ -200,6 +202,37 @@ def construir_grafo() -> tuple:
                 'color':            curr.idlinearuta.idlinea.colorlinea,
                 'coordenada_desde': curr.idpunto.coordenada, # coord del nodo origen
             })
+
+        # Arista de cierre para rutas circulares (detección geográfica):
+        # Si el último punto no tiene destino (idpuntodest_id IS NULL) y además
+        # el primer y último punto están a menos de UMBRAL_RUTA_CIRCULAR metros,
+        # la ruta es circular (ej. L017/L018 sobre el primer anillo).
+        # Se agrega la arista de wrap-around usando la velocidad promedio de la
+        # propia ruta para estimar el tiempo del tramo de cierre.
+        if len(lps_ord) >= 2:
+            last  = lps_ord[-1]
+            first = lps_ord[0]
+            if last.idpuntodest_id is None:
+                dist_wrap = _distancia_m(last.idpunto.coordenada,
+                                        first.idpunto.coordenada)
+                if dist_wrap < UMBRAL_RUTA_CIRCULAR:
+                    # Velocidad promedio de la ruta (m/s) a partir de sus datos reales
+                    total_dist = sum(lp.distancia for lp in lps_ord if lp.distancia)
+                    total_time = sum(lp.tiempo    for lp in lps_ord if lp.tiempo)
+                    if total_time > 0:
+                        vel_m_s    = total_dist / total_time          # m/s
+                        peso_wrap  = (dist_wrap / vel_m_s) / 60.0    # → minutos
+                    else:
+                        peso_wrap  = dist_wrap / 250.0  # fallback: 15 km/h = 250 m/min
+                    grafo[(lr_id, last.idpunto_id)].append({
+                        'tipo':             'bus',
+                        'nodo':             (lr_id, first.idpunto_id),
+                        'peso':             peso_wrap,
+                        'distancia':        dist_wrap,
+                        'linea':            last.idlinearuta.idlinea.nombrelinea,
+                        'color':            last.idlinearuta.idlinea.colorlinea,
+                        'coordenada_desde': last.idpunto.coordenada,
+                    })
 
     # ── Aristas tipo 'trasbordo' (predefinidas, mismo punto físico) ───────
     for tr in trasbordos_db:
