@@ -11,7 +11,7 @@ from .models import Puntos, LineasPuntos, PuntosTransbordo
 # ══════════════════════════════════════════════════════════════════════════
 PENALIZACION_TRASBORDO_DEFAULT = 5.0   # minutos (trasbordos sin registro en BD)
 VELOCIDAD_CAMINATA_MPM        = 83.33  # metros por minuto (≈ 5 km/h)
-RADIO_USUARIO                 = 200    # metros – radio para buscar paradas del usuario
+RADIO_USUARIO                 = 500    # metros – radio para buscar paradas del usuario
 RADIO_TRASBORDO               = 300    # metros – radio para detectar trasbordos dinámicos
 SRID_UTM                      = 32720  # EPSG 32720 – UTM Zona 20S (Santa Cruz de la Sierra)
 K_RUTAS_MAX                   = 5      # máximo de opciones de ruta a devolver
@@ -393,11 +393,11 @@ def formatear_ruta(
     del API, agrupando aristas consecutivas del mismo tipo/línea en tramos.
 
     Tramos generados:
-      caminata_origen       → caminata del usuario a la primera parada de bus
-      viaje_bus             → recorrido en micro (segmentos agrupados por línea)
-      espera_trasbordo      → penalización en el mismo punto físico
-      caminata_trasbordo    → caminata entre paradas de distinta línea
-      caminata_destino      → caminata de la última parada al usuario
+    caminata_origen       → caminata del usuario a la primera parada de bus
+    viaje_bus             → recorrido en micro (segmentos agrupados por línea)
+    espera_trasbordo      → penalización en el mismo punto físico
+    caminata_trasbordo    → caminata entre paradas de distinta línea
+    caminata_destino      → caminata de la última parada al usuario
     """
     tramos          = []
     tiempo_total    = 0.0
